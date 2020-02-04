@@ -1,0 +1,222 @@
+# ODM product specific init rc configs go here
+
+# Import other ODM specific init rc files here
+import /vendor/etc/init/hw/init.blackshark.common.rc
+
+on boot
+    # DSM control
+    #chown media media /dev/dsm_ctrl_dev
+    #chown media media /system/xbin/dsm_ctrl
+    #chmod 0600 /dev/dsm_ctrl_dev
+    #chmod 0700 /system/xbin/dsm_ctrl
+
+    # cpuset policy
+    write /dev/cpuset/foreground/cpus 0-7
+    write /dev/cpuset/foreground/boost/cpus 4-7
+    write /dev/cpuset/background/cpus 0-3
+    write /dev/cpuset/system-background/cpus 0-5
+    write /dev/cpuset/system-foreground/cpus 0-7
+    write /dev/cpuset/top-app/cpus 0-7
+    write /dev/cpuset/game/cpus 4-7
+
+#  sys.sysctl.led.brightness
+on property:sys.sysctl.led.brightness=*
+   write /sys/class/leds/button-backlight/brightness ${sys.sysctl.led.brightness}
+
+#  sys.sysctl.led.red
+on property:sys.sysctl.led.red=*
+   write /sys/class/leds/red/brightness ${sys.sysctl.led.red}
+
+#  sys.sysctl.led.green
+on property:sys.sysctl.led.green=*
+   write /sys/class/leds/green/brightness ${sys.sysctl.led.green}
+
+#  sys.sysctl.led.blue
+on property:sys.sysctl.led.blue=*
+   write /sys/class/leds/blue/brightness ${sys.sysctl.led.blue}
+
+#  sys.sysctl.led.swith0
+on property:sys.sysctl.led.switch0=*
+   write /sys/class/leds/led:switch_0/brightness ${sys.sysctl.led.switch0}
+
+#  sys.sysctl.led.swith1
+on property:sys.sysctl.led.switch1=*
+   write /sys/class/leds/led:switch_1/brightness ${sys.sysctl.led.switch1}
+
+#  sys.sysctl.led.flash0
+on property:sys.sysctl.led.flash0=*
+   write /sys/class/leds/led:flash_0/brightness ${sys.sysctl.led.flash0}
+
+#  sys.sysctl.led.flash1
+on property:sys.sysctl.led.flash1=*
+   write /sys/class/leds/led:flash_1/brightness ${sys.sysctl.led.flash1}
+
+#  sys.sysctl.led.flash2
+on property:sys.sysctl.led.flash2=*
+   write /sys/class/leds/led:flash_2/brightness ${sys.sysctl.led.flash2}
+
+#  sys.sysctl.charger.aging
+on property:persist.charger.aging=*
+   write /sys/class/power_supply/battery/aging_running ${persist.charger.aging}
+   write /sys/class/power_supply/bms/aging_running ${persist.charger.aging}
+
+on fs
+   chown system system /dev/goodix_fp
+   chmod 0777 /dev/goodix_fp
+
+   #Add for spkcal
+   chown system system /dev/tiload_node
+   chmod 0777 /dev/tiload_node
+   chmod 0666 /mnt/vendor/persist/audio/tas2559_cal.bin
+   chmod 0666 /mnt/vendor/persist/audio/tas2559_cal.txt
+
+   chown system system /proc/nvt_doze_switch
+   chown system system /proc/nvt_sensitivity
+   chown system system /proc/nvt_fir_switch
+   chown system system /proc/nvt_point_skim
+
+   chown system system /proc/touchscreen/rawdata
+
+##reserve 100M for privileged user
+#on fs
+#    exec - root root -- /system/bin/tune2fs -u 1000 -r 51200 /dev/block/bootdevice/by-name/userdata
+#
+#on charger
+#    write /sys/class/power_supply/battery/ibat_fcc 3000
+
+#wade add iris2p dev
+on boot
+    chown system system /dev/iris2p
+    chmod 0666 /dev/iris2p
+    chown system system /sys/devices/virtual/misc/iris2p/iris2p_func_status
+    chown system system /sys/devices/virtual/misc/iris2p/iris2p_pt_power
+    chown system system /sys/devices/virtual/misc/iris2p/memc_status
+    chown system system /sys/devices/virtual/misc/iris2p/iris2p_firmware
+    chmod 0444 /sys/devices/virtual/misc/iris2p/iris2p_func_status
+    chmod 0664 /sys/devices/virtual/misc/iris2p/iris2p_pt_power
+    chmod 0444 /sys/devices/virtual/misc/iris2p/memc_status
+    chmod 0664 /sys/devices/virtual/misc/iris2p/iris2p_firmware
+    #Add charger control
+    chown system system /sys/class/power_supply/battery/input_suspend
+    chown system system /sys/class/power_supply/battery/aging_running
+    chown system system /sys/class/power_supply/bms/aging_running
+    chmod 0660 /sys/class/power_supply/battery/input_suspend
+    chmod 0660 /sys/class/power_supply/battery/aging_running
+    chmod 0660 /sys/class/power_supply/bms/aging_running
+on post-fs-data
+    mkdir /data/vendor/bslogs/touch 0777 system system
+    mkdir /data/vendor/display/firmware 0777 system system
+    chmod 0777 /data/vendor/bslogs/touch
+    chmod 0777 /data/vendor/display/firmware/MCF.bin
+    chmod 0777 /data/vendor/display/firmware/iris2p_ccf1.fw
+    chmod 0777 /data/vendor/display/firmware/iris2p_ccf2.fw
+    chmod 0777 /data/vendor/display
+
+    #spkcal
+    mkdir /data/vendor/spkcal 0777 system system
+
+    # Add goodix fp
+    mkdir /data/vendor/goodix 0777 system system
+    mkdir /data/vendor/goodix/gf_data 0777 system system
+    chmod 0777 /data/vendor/goodix
+    chmod 0777 /data/vendor/goodix/gf_data
+
+    mkdir /persist/data/goodix_temp 0777 system system
+    chmod 0777 /persist/data/goodix_temp
+
+    copy /persist/data/goodix_temp/finger_0_0.so /data/vendor/goodix/finger_0_0.so
+    copy /persist/data/goodix_temp/finger_0_0_bak.so /data/vendor/goodix/finger_0_0_bak.so
+    copy /persist/data/goodix_temp/finger_0_1.so /data/vendor/goodix/finger_0_1.so
+    copy /persist/data/goodix_temp/finger_0_1_bak.so /data/vendor/goodix/finger_0_1_bak.so
+    copy /persist/data/goodix_temp/finger_0_2.so /data/vendor/goodix/finger_0_2.so
+    copy /persist/data/goodix_temp/finger_0_2_bak.so /data/vendor/goodix/finger_0_2_bak.so
+    copy /persist/data/goodix_temp/finger_0_3.so /data/vendor/goodix/finger_0_3.so
+    copy /persist/data/goodix_temp/finger_0_3_bak.so /data/vendor/goodix/finger_0_3_bak.so
+    copy /persist/data/goodix_temp/finger_0_4.so /data/vendor/goodix/finger_0_4.so
+    copy /persist/data/goodix_temp/finger_0_4_bak.so /data/vendor/goodix/finger_0_4_bak.so
+    copy /persist/data/goodix_temp/auth_token_0.so /data/vendor/goodix/auth_token_0.so
+    copy /persist/data/goodix_temp/gf_calibration.so /data/vendor/goodix/gf_calibration.so
+    copy /persist/data/goodix_temp/gf_fdt_base.so /data/vendor/goodix/gf_fdt_base.so
+    copy /persist/data/goodix_temp/gf_nav_base.so /data/vendor/goodix/gf_nav_base.so
+    copy /persist/data/goodix_temp/gf_otp_info.so /data/vendor/goodix/gf_otp_info.so
+    rm /persist/data/goodix_temp/finger_0_0.so
+    rm /persist/data/goodix_temp/finger_0_0_bak.so
+    rm /persist/data/goodix_temp/finger_0_1.so
+    rm /persist/data/goodix_temp/finger_0_1_bak.so
+    rm /persist/data/goodix_temp/finger_0_2.so
+    rm /persist/data/goodix_temp/finger_0_2_bak.so
+    rm /persist/data/goodix_temp/finger_0_3.so
+    rm /persist/data/goodix_temp/finger_0_3_bak.so
+    rm /persist/data/goodix_temp/finger_0_4.so
+    rm /persist/data/goodix_temp/finger_0_4_bak.so
+    rm /persist/data/goodix_temp/auth_token_0.so
+    rm /persist/data/goodix_temp/gf_calibration.so
+    rm /persist/data/goodix_temp/gf_fdt_base.so
+    rm /persist/data/goodix_temp/gf_nav_base.so
+    rm /persist/data/goodix_temp/gf_otp_info.so
+    copy /persist/data/finger_0_0.so /persist/data/goodix_temp/finger_0_0.so
+    copy /persist/data/finger_0_0_bak.so /persist/data/goodix_temp/finger_0_0_bak.so
+    copy /persist/data/finger_0_1.so /persist/data/goodix_temp/finger_0_1.so
+    copy /persist/data/finger_0_1_bak.so /persist/data/goodix_temp/finger_0_1_bak.so
+    copy /persist/data/finger_0_2.so /persist/data/goodix_temp/finger_0_2.so
+    copy /persist/data/finger_0_2_bak.so /persist/data/goodix_temp/finger_0_2_bak.so
+    copy /persist/data/finger_0_3.so /persist/data/goodix_temp/finger_0_3.so
+    copy /persist/data/finger_0_3_bak.so /persist/data/goodix_temp/finger_0_3_bak.so
+    copy /persist/data/finger_0_4.so /persist/data/goodix_temp/finger_0_4.so
+    copy /persist/data/finger_0_4_bak.so /persist/data/goodix_temp/finger_0_4_bak.so
+    copy /persist/data/auth_token_0.so /persist/data/goodix_temp/auth_token_0.so
+    copy /persist/data/gf_calibration.so /persist/data/goodix_temp/gf_calibration.so
+    copy /persist/data/gf_fdt_base.so /persist/data/goodix_temp/gf_fdt_base.so
+    copy /persist/data/gf_nav_base.so /persist/data/goodix_temp/gf_nav_base.so
+    copy /persist/data/gf_otp_info.so /persist/data/goodix_temp/gf_otp_info.so
+    chown system system /data/vendor/goodix/finger_0_0.so
+    chown system system /data/vendor/goodix/finger_0_0_bak.so
+    chown system system /data/vendor/goodix/finger_0_1.so
+    chown system system /data/vendor/goodix/finger_0_1_bak.so
+    chown system system /data/vendor/goodix/finger_0_2.so
+    chown system system /data/vendor/goodix/finger_0_2_bak.so
+    chown system system /data/vendor/goodix/finger_0_3.so
+    chown system system /data/vendor/goodix/finger_0_3_bak.so
+    chown system system /data/vendor/goodix/finger_0_4.so
+    chown system system /data/vendor/goodix/finger_0_4_bak.so
+    chown system system /data/vendor/goodix/auth_token_0.so
+    chown system system /data/vendor/goodix/gf_calibration.so
+    chown system system /data/vendor/goodix/gf_fdt_base.so
+    chown system system /data/vendor/goodix/gf_nav_base.so
+    chown system system /data/vendor/goodix/gf_otp_info.so
+    chmod 0700 /data/vendor/goodix/finger_0_0.so
+    chmod 0700 /data/vendor/goodix/finger_0_1.so
+    chmod 0700 /data/vendor/goodix/finger_0_2.so
+    chmod 0700 /data/vendor/goodix/finger_0_3.so
+    chmod 0700 /data/vendor/goodix/finger_0_4.so
+    chmod 0700 /data/vendor/goodix/finger_0_0_bak.so
+    chmod 0700 /data/vendor/goodix/finger_0_1_bak.so
+    chmod 0700 /data/vendor/goodix/finger_0_2_bak.so
+    chmod 0700 /data/vendor/goodix/finger_0_3_bak.so
+    chmod 0700 /data/vendor/goodix/finger_0_4_bak.so
+    chmod 0700 /data/vendor/goodix/auth_token_0.so
+    chmod 0700 /data/vendor/goodix/gf_calibration.so
+    chmod 0700 /data/vendor/goodix/gf_fdt_base.so
+    chmod 0700 /data/vendor/goodix/gf_nav_base.so
+    chmod 0700 /data/vendor/goodix/gf_otp_info.so
+    rm /persist/data/finger_0_0.so
+    rm /persist/data/finger_0_1.so
+    rm /persist/data/finger_0_2.so
+    rm /persist/data/finger_0_3.so
+    rm /persist/data/finger_0_4.so
+    rm /persist/data/finger_0_0_bak.so
+    rm /persist/data/finger_0_1_bak.so
+    rm /persist/data/finger_0_2_bak.so
+    rm /persist/data/finger_0_3_bak.so
+    rm /persist/data/finger_0_4_bak.so
+    rm /persist/data/auth_token_0.so
+    rm /persist/data/gf_calibration.so
+    rm /persist/data/gf_fdt_base.so
+    rm /persist/data/gf_nav_base.so
+    rm /persist/data/gf_otp_info.so
+
+#Add diag_manufactory service
+service diag_manufactory /vendor/bin/diag_manufactory
+    class main
+    user root
+    group root system vendor_qti_diag

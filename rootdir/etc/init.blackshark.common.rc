@@ -1,0 +1,475 @@
+# Blackshark platform common init rc configs go here
+on init
+# Add system-foreground cpuset for perf critical system services
+    mkdir /dev/cpuset/system-foreground
+    write /dev/cpuset/system-foreground/cpus 0-7
+    write /dev/cpuset/system-foreground/mems 0
+    chown system system /dev/cpuset/system-foreground
+    chown system system /dev/cpuset/system-foreground/tasks
+    chmod 0775 /dev/cpuset/system-foreground
+    chmod 0664 /dev/cpuset/system-foreground/tasks
+
+on boot
+    #hawkeye devices
+    chmod 0664 /dev/heye_bms_svr
+    chmod 0664 /dev/heye_bms_clt
+    chmod 0664 /dev/heye_pms_svr
+    chmod 0664 /dev/heye_pms_clt
+    chmod 0664 /dev/heye_ems_svr
+    chmod 0664 /dev/heye_ems_clt
+
+    #for torch
+    chown system system /sys/class/leds/led:switch_0/brightness
+    chown system system /sys/class/leds/led:torch_0/brightness
+    chown system system /sys/class/leds/led:torch_1/brightness
+    chmod 0664 /sys/class/leds/led:switch_0/brightness
+    chmod 0664 /sys/class/leds/led:torch_0/brightness
+    chmod 0664 /sys/class/leds/led:torch_1/brightness
+
+#    #charger node
+#    chown system system /sys/class/power_supply/battery/charging_enabled
+#    chmod 0664 /sys/class/power_supply/battery/charging_enabled
+#    chown system system /sys/class/power_supply/battery/battery_charging_enabled
+#    chmod 0664 /sys/class/power_supply/battery/battery_charging_enabled
+    setprop persist.vendor.cp.qc3_max_delta_decidegc 0
+    setprop persist.vendor.cp.qc3_min_delta_decidegc -200
+    setprop persist.vendor.chg.max_volt_mv 9500
+
+    # for hardwaretest
+    mkdir /persist/stability 0775 system system
+
+on charger
+    chown system system /sys/class/power_supply/usb/led_rgb
+    chmod 0664 /sys/class/power_supply/usb/led_rgb
+
+#For atrace dump of JunkService
+service atrace_on /system/bin/atrace -c -b 10240 gfx input view webview wm am sm audio video camera hal res dalvik power pm ss sched freq idle disk --async_start
+    class main
+    user root
+    group system
+    oneshot
+    disabled
+
+
+#service recoverylog /system/bin/recoverylog_upload
+#    class main
+#    user root
+#    group system
+#    oneshot
+#    disabled
+
+service atrace_off /system/bin/atrace -b 4096 gfx input view webview wm am sm audio video camera hal res dalvik power pm ss sched freq idle disk --async_stop
+    class main
+    user root
+    group system
+    oneshot
+    disabled
+
+#hawkeyecfg
+service hawkeyecfg /system/bin/hawkeyecfg --update
+    class main
+    user root
+    group system
+    oneshot
+    disabled
+
+
+#insmod heye.ko
+#on boot
+#    insmod /system/lib/modules/heye.ko
+
+#    mkdir /data/modemservice 0770 system system
+#    chown system system /data/modemservice
+#    mkdir /data/hermesservice 0770 system system
+#    chown system system /data/hermesservice
+#
+
+on property:sys.boot_completed=1 && property:persist.vendor.phone.beta.state=1
+    start atrace_on
+
+#on property:sys.boot_completed=1
+#    start recoverylog
+
+#offline log begin----->>
+on post-fs-data
+    #hawkeye cfg
+    mkdir /data/hawkeyecfg 0770 system system
+    mkdir /data/hawkeyecfg/beta 0770 system system
+    mkdir /data/hawkeyecfg/user 0770 system system
+    mkdir /data/hawkeyecfg/release 0770 system system
+    start hawkeyecfg
+    #hawkeye cfg
+    mkdir /data/vendor/etc_push 0770 root system
+
+    mkdir /data/vendor/modemservice 0770 system system
+    chown system system /data/vendor/modemservice
+    mkdir /data/vendor/hermesservice 0770 system system
+    chown system system /data/vendor/hermesservice
+
+    mkdir /data/system/config 0777 system system
+
+    mkdir /data/vendor/bslogs 0775 log log
+    mkdir /data/vendor/bslogs/touch 0777 system system
+    chmod 0777 /data/vendor/bslogs/touch
+    setprop init.svc.vendor.bslogd.start 0
+    setprop ro.logd.kernel true
+    stop logd
+    start logd
+    start logd-reinit
+
+    start custd
+
+
+# ffbm boot mode
+on property:ro.bootmode=ffbm-00
+    setprop init.svc.vendor.bslogd.start 1
+
+on property:ro.bootmode=ffbm-01
+    setprop init.svc.vendor.bslogd.start 1
+
+on property:ro.bootmode=ffbm-02
+    setprop init.svc.vendor.bslogd.start 1
+
+# charger boot mode
+#on property:ro.bootmode=charger
+#    setprop init.svc.vendor.bslogd.start 0
+
+#normal boot mode
+on property:sys.boot_completed=1
+    setprop init.svc.vendor.bslogd.start 1
+
+#mmi backcolor
+on property:persist.vendor.bsbackcolor=*
+
+#only disable offline log when factoryflag is true of user version
+#removed by meipeng for duplicated code
+on property:ro.build.type=user && property:ro.boot.factoryflag=T && property:persist.vendor.phone.beta.state=2
+    setprop persist.vendor.offlinelog 0
+
+on property:persist.vendor.offlinelog=1 && property:persist.vendor.bslogd.logcatd=0
+    setprop persist.vendor.bslogd.logcatd bs_logcatd
+
+on property:persist.vendor.offlinelog=1 && property:persist.vendor.bslogd.battd=0
+    setprop persist.vendor.bslogd.battd bs_battd
+
+on property:persist.vendor.offlinelog=0
+    setprop persist.vendor.bslogd.logcatd 0
+    setprop persist.vendor.bslogd.battd 0
+    setprop persist.vendor.bslogd.tcpdumpd 0
+    setprop persist.vendor.bslogd.mdlogd 0
+    setprop persist.vendor.bslogd.gpslogd 0
+    setprop persist.vendor.bslogd.wlanlogd 0
+    setprop persist.vendor.bslogd.sensorlogd 0
+    setprop persist.vendor.bslogd.btlogd 0
+    setprop persist.vendor.download_mode 0
+	setprop persist.vendor.mini_ramdump_bak 0
+	setprop persist.vendor.sdcard_ramdump 0
+    setprop persist.vendor.ssr.enable_ramdumps 0
+    start bs_logcatd_sys_cl
+
+#enable/disable pstore feature via beta state
+on property:persist.vendor.phone.beta.state=2
+    write /sys/module/msm_poweroff/parameters/pstore_enable 0
+on property:persist.vendor.phone.beta.state=1
+    write /sys/module/msm_poweroff/parameters/pstore_enable 1
+
+#enable/disable ramdump feature
+on property:persist.vendor.sdcard_ramdump=0
+    write /sys/kernel/dload/emmc_dload 0
+#    exec u:r:logdumpd:s0 - system system -- /vendor/bin/dd if=/dev/zero of=/dev/block/bootdevice/by-name/rawdump bs=1024
+#    rm /data/vendor/bslogs/ramdump/ram_dump/rdcookie.txt
+#    rm /data/vendor/bslogs/ramdump/ram_dump/rtcookie.txt
+#    rm /data/vendor/bslogs/ramdump/ram_dump/rwcookie.txt
+
+on property:persist.vendor.sdcard_ramdump=1
+    write /sys/kernel/dload/emmc_dload 1
+#    wait /data/vendor/ramdump
+#    exec u:r:logdumpd:s0 - system system -- /vendor/bin/dd if=/dev/block/bootdevice/by-name/rawdump of=/data/vendor/ramdump/md_rawdump bs=1024
+#    chmod 0666 /data/vendor/ramdump/md_rawdump
+#    exec u:r:logdumpd:s0 - system system -- /vendor/bin/dd if=/dev/zero of=/dev/block/bootdevice/by-name/rawdump bs=1024
+#    wait /data/vendor/bslogs/ramdump/ram_dump
+#    write /data/vendor/bslogs/ramdump/ram_dump/rdcookie.txt sdcard
+#    write /data/vendor/bslogs/ramdump/ram_dump/rtcookie.txt sdcard
+#    write /data/vendor/bslogs/ramdump/ram_dump/rwcookie.txt sdcard
+
+#enable/disable mini ramdump feature
+on property:persist.vendor.mini_ramdump_bak=1
+    write /sys/kernel/dload/dload_mode mini
+
+on property:persist.vendor.mini_ramdump_bak=0
+    write /sys/kernel/dload/dload_mode full
+
+on property:persist.vendor.download_mode=0
+    write /sys/module/msm_poweroff/parameters/download_mode 0
+
+on property:persist.vendor.download_mode=1
+    write /sys/module/msm_poweroff/parameters/download_mode 1
+    setprop persist.sys.pstore.path /sys/fs/pstore/console-ramoops-0
+
+#format partition ramdump as fat32 and resize it to 9G for saving full ramdump
+#on property:persist.vendor.download_mode=1 && property:sys.boot_completed=1 && property:ro.crypto.state=encrypted
+#    wait /sdcard
+#    start ramdump_mount
+
+#logcat on/off
+on property:persist.vendor.bslogd.logcatd=bs_logcatd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+#    # all exec/services are called with umask(077), so no gain beyond 0700
+#    mkdir /data/vendor/bslogs/logcat 0700 system system
+#    start bs_logcatd
+    stop bs_logcatd_sys_cl
+    start bs_logcatd_sys
+
+on property:persist.vendor.bslogd.logcatd=0
+    #stop bs_logcatd
+    stop bs_logcatd_sys
+
+#battlog on /off
+on property:persist.vendor.bslogd.battd=bs_battd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/battery 0700 system system
+    start bs_battd
+
+on property:persist.vendor.bslogd.battd=0
+    stop bs_battd
+
+#netlog on/off
+on property:persist.vendor.bslogd.tcpdumpd=bs_tcpdumpd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/tcpdump 0700 system system
+    start bs_tcpdumpd
+
+on property:persist.vendor.bslogd.tcpdumpd=0
+    stop bs_tcpdumpd
+
+#modem log on/off
+on property:persist.vendor.bslogd.mdlogd=bs_mdlogd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/modem 0700 system system
+    wait /sdcard
+    start bs_mdlogd
+
+on property:persist.vendor.bslogd.mdlogd=0
+    start bs_stopmdiag
+
+#gps log on/off
+on property:persist.vendor.bslogd.gpslogd=bs_gpslogd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/gps 0700 system system
+    wait /sdcard
+    start bs_gpslogd
+
+on property:persist.vendor.bslogd.gpslogd=0
+    start bs_stopmdiag
+
+#wlan log on/off
+on property:persist.vendor.bslogd.wlanlogd=bs_wlanlogd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/wlan 0700 system system
+    wait /sdcard
+    start bs_wlanlogd
+
+on property:persist.vendor.bslogd.wlanlogd=0
+    start bs_stopmdiag
+
+#sensor log on/off
+on property:persist.vendor.bslogd.sensorlogd=bs_sensorlogd && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+    mkdir /data/vendor/bslogs/sensor 0700 system system
+    wait /sdcard
+    setprop persist.sys.diag.mdlog 1
+    setprop persist.sys.diag.mdlog.once 1
+    start bs_sensorlogd
+
+on property:persist.vendor.bslogd.sensorlogd=0
+    start bs_stopmdiag
+
+#bt log on/off
+#on property:persist.bluetooth.btsnoopenable=true && property:persist.vendor.offlinelog=1 && property:init.svc.vendor.bslogd.start=1
+#    mkdir /data/misc/bluetooth/logs 0700 bluetooth bluetooth
+#    chmod 0777  /data/misc/bluetooth/logs
+#    write /data/misc/bluetooth/logs/btsnoop_hci.log 1
+#    chmod 0777 /data/misc/bluetooth/logs/btsnoop_hci.log
+
+service clearlog /vendor/bin/clearlog
+    class main
+    user root
+    group root
+    oneshot
+    disabled
+
+#clear offline log in junk
+on property:ro.bootmode=unknown && property:persist.vendor.offlinelog=1
+   start clearlog
+
+#for device up and down
+#on property:persist.tplcd.state=*
+##wait for implement by bsp colleagues
+#
+#on property:persist.fp.state=*
+##wait for implement by bsp colleagues
+#
+on property:vold.decrypt=trigger_restart_framework
+	start modemservice
+	start hermesservice
+
+#service ramdump_mount for full dump partition ramdump mount
+service ramdump_mount /vendor/bin/mountramdump.sh
+	class late_start
+	user root
+	oneshot
+    disabled
+
+#service of logcat
+#service bs_logcatd /system/bin/logcat -b all -v threadtime -v usec -v printable -D -f /data/vendor/bslogs/logcat/logcat -r 4096 -n 768
+#    class late_start
+#    user system
+#    group system
+#    disabled
+#    writepid /dev/cpuset/system-background/tasks
+
+service bs_logcatd_sys /system/bin/logcat -b all -v threadtime -v usec -v printable -D -f /data/bslogs/logcat/logcat -r 4096 -n 768
+    class late_start
+    user system
+    group system
+    disabled
+    seclabel u:r:bs_logcatd_sys:s0
+    writepid /dev/cpuset/system-background/tasks
+
+service bs_logcatd_sys_cl /system/bin/logcat -b all -v threadtime -v usec -v printable -D -f  /data/bslogs/logcat/logcat -r 4096 -n 768 -c
+    class late_start
+    user system
+    group system
+    oneshot
+    disabled
+    seclabel u:r:bs_logcatd_sys:s0
+    writepid /dev/cpuset/system-background/tasks
+
+#service of batlog
+service bs_battd /vendor/bin/battd
+    class late_start
+    user system
+    group system
+    disabled
+    writepid /dev/cpuset/system-background/tasks
+
+#service of netlog
+service bs_tcpdumpd /vendor/xbin/tcpdump -i any -nnXSs 0 -C 128 -W 4 -Z system -w /data/vendor/bslogs/tcpdump/tcpdump.cap
+    class late_start
+    user root
+    group root
+    disabled
+    writepid /dev/cpuset/system-background/tasks
+
+#service of stop diag_mdlog
+service bs_stopmdiag /vendor/bin/diag_mdlog -k
+    class late_start
+    user root
+    group root
+    oneshot
+    disabled
+
+#service of diag_mdlog for modem log
+service bs_mdlogd /vendor/bin/diag_mdlog -bce -f /vendor/etc/qxdm/modem.cfg -s 128 -n 16 -o /data/vendor/bslogs/modem
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for gps log
+service bs_gpslogd /vendor/bin/diag_mdlog -bce -f /vendor/etc/qxdm/gps.cfg -s 128 -n 100 -o /data/vendor/bslogs/gps
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for wlan log
+service bs_wlanlogd /vendor/bin/diag_mdlog -bce -f /vendor/etc/qxdm/wlan.cfg -s 128 -n 16 -o /data/vendor/bslogs/wlan
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for sensor log
+service bs_sensorlogd /vendor/bin/diag_mdlog -bce -f /vendor/etc/qxdm/sensor.cfg -s 128 -n 16 -o /data/vendor/bslogs/sensor
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#POL-408: Add Bin bin.zhao@Blackshark 2016/11/25 Begin
+service modemservice /system/vendor/bin/modemservice
+    class main
+    socket msd stream 660 root system
+    socket msd-debug stream 660 root system
+    user root
+    group radio cache inet misc audio sdcard_r sdcard_rw diag log
+    disabled
+
+service hermesservice /system/vendor/bin/hermesservice
+    class main
+    socket hsd stream 660 root system
+    socket hsd-debug stream 660 root system
+    user root
+    group radio cache inet misc audio sdcard_r sdcard_rw net_raw diag log
+    disabled
+#POL-408: Add Bin bin.zhao@Blackshark 2016/11/25 End
+
+#<<-----offline log end
+
+#Add custom fearture
+service custd /vendor/bin/cust_daemon
+    class main
+    oneshot
+    disabled
+
+on fs
+    chown system system /dev/dsm_ctrl_dev
+    chmod 666 /dev/dsm_ctrl_dev
+    #audio:smartpa cali para
+    mkdir /mnt/vendor/persist/audio 0777 system system
+    chmod 0666 /mnt/vendor/persist/audio/spkr_calib_l.bin
+    chmod 0666 /mnt/vendor/persist/audio/spkr_calib_r.bin
+
+on property:ro.boot.factoryimg=true
+    setprop persist.sys.strictmode.disable true
+    setprop persist.vendor.ssr.enable_ramdumps 0
+    setprop persist.vendor.sdcard_ramdump 0
+    setprop persist.vendor.download_mode 1
+    setprop persist.vendor.ssr.restart_level ALL_DISABLE
+
+#Add diag_manufactory service
+#service diag_manufactory /vendor/bin/diag_manufactory
+#    class main
+#    user root system
+#    group root system vendor_qti_diag
+
+#service bugreport /system/bin/dumpstate -d -p -B -z \
+#        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+#    class main
+#    disabled
+#    oneshot
+
+# lcd calibration
+service panelcalib /vendor/bin/irisPanelCalibration
+    class main
+    user root
+    group root system
+    oneshot
+    disabled
+
+#Add nvops service
+service nvops /vendor/bin/nvops
+    class main
+    user system
+    group system
+
+service bugreport /system/bin/dumpstate -d -p -B -z \
+        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+    class main
+    disabled
+    oneshot
+
+on property:sys.boot_completed=1 && property:ro.crypto.state=encrypted
+    start panelcalib
